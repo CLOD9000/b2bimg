@@ -23,7 +23,7 @@ services:
     environment:
       # dentro il container serve bindare su tutte le interfacce: l'isolamento
       # è garantito da "ports: 127.0.0.1:" e/o dal reverse proxy.
-      APP_HOST: 0.0.0.0
+      APP_HOST: 192.168.9.14
       APP_PORT: "8000"
       DATA_DIR: /data
     volumes:
