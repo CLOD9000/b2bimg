@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}{{ job.name or job.id[:8] }} — b2bimg{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>{{ job.name or job.id[:8] }}</h1>
+    <p class="muted small">
+      {{ job.source_filename }} · {{ job.encoding }} · separatore “{{ job.delimiter }}”
+      · {{ job.rows|length }} righe · creato {{ job.created_at.strftime("%Y-%m-%d %H:%M") }}
+    </p>
+  </div>
+  <div class="actions">
+    <a class="btn btn-ghost" href="/">← Dashboard</a>
+    <a class="btn" href="/jobs/{{ job.id }}/report.csv">Report CSV</a>
+    <form method="post" action="/jobs/{{ job.id }}/delete" class="inline"
+          onsubmit="return confirm('Eliminare il job e tutte le righe?');">
+      <button type="submit" class="btn btn-danger">Elimina</button>
+    </form>
+  </div>
+</div>
+
+{% include "partials/filter_section.html" %}
+{% include "partials/config_section.html" %}
+{% include "partials/run_panel.html" %}
+{% endblock %}

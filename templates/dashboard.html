@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — b2bimg{% endblock %}
+{% block content %}
+<div class="page-head">
+  <h1>Job</h1>
+  <a class="btn btn-primary" href="/jobs/new">+ Nuovo job da CSV</a>
+</div>
+
+{% if not items %}
+<div class="card empty">
+  <p>Nessun job presente. Carica un CSV di prodotti per iniziare.</p>
+  <a class="btn btn-primary" href="/jobs/new">Carica CSV</a>
+</div>
+{% else %}
+<table class="table">
+  <thead>
+    <tr>
+      <th>Job</th>
+      <th>Stato</th>
+      <th>Righe</th>
+      <th>Scaricate</th>
+      <th>Sorgente → Destinazione</th>
+      <th>Creato</th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+  {% for item in items %}
+    {% set job = item.job %}
+    <tr>
+      <td>
+        <a href="/jobs/{{ job.id }}"><strong>{{ job.name or job.id[:8] }}</strong></a>
+        <div class="muted small">{{ job.source_filename }} · {{ job.encoding }} · sep. “{{ job.delimiter }}”</div>
+      </td>
+      <td><span class="badge badge-{{ job.status }}">{{ job.status }}</span></td>
+      <td>{{ job.rows|length }}</td>
+      <td>{{ item.downloaded }}</td>
+      <td class="small">
+        {{ job.source_type or "—" }} → {{ job.dest_type or "—" }}
+      </td>
+      <td class="small">{{ job.created_at.strftime("%Y-%m-%d %H:%M") }}</td>
+      <td class="right"><a class="btn btn-small" href="/jobs/{{ job.id }}">Apri</a></td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+{% endblock %}

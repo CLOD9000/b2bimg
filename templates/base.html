@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>{% block title %}b2bimg{% endblock %}</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <script src="/static/htmx.min.js" defer></script>
+</head>
+<body>
+<header class="topbar">
+  <div class="brand"><a href="/">b2bimg</a> <span class="tag">interno</span></div>
+  {% if user is defined and user %}
+  <nav>
+    <a href="/">Dashboard</a>
+    <a href="/jobs/new">Nuovo job</a>
+  </nav>
+  <div class="user">
+    <span>{{ user.username }}</span>
+    <form action="/logout" method="post" class="inline">
+      <button type="submit" class="btn btn-ghost">Esci</button>
+    </form>
+  </div>
+  {% endif %}
+</header>
+
+<main class="container">
+  {% block content %}{% endblock %}
+</main>
+
+<footer class="footer">Portale interno — non esporre pubblicamente senza reverse proxy.</footer>
+</body>
+</html>

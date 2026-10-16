@@ -1,0 +1,21 @@
+<div id="filter-values" class="values-box">
+  {% if not field %}
+    <p class="muted">Seleziona un campo per vedere i valori disponibili.</p>
+  {% elif not values %}
+    <p class="muted">Nessun valore trovato{% if search %} per “{{ search }}”{% endif %}.</p>
+  {% else %}
+    <div class="values-list">
+      {% for item in values %}
+      <label class="check">
+        <input type="checkbox" name="values" value="{{ item.value }}"
+               {% if not job.filter_values or item.value in job.filter_values %}checked{% endif %}>
+        <span class="mono">{{ item.value or '(vuoto)' }}</span>
+        <span class="count">{{ item.count }}</span>
+      </label>
+      {% endfor %}
+    </div>
+    {% if values|length >= 200 %}
+    <p class="help">Mostrati i primi 200 valori: usa la ricerca per restringere l'elenco.</p>
+    {% endif %}
+  {% endif %}
+</div>

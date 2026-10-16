@@ -1,0 +1,33 @@
+{% macro field_input(field, current, kind) %}
+{#- Renderizza un FieldSpec del plugin. `current` = valori salvati, `kind` = src|dst -#}
+{% set name = kind ~ '_' ~ field.name %}
+{% set value = current[field.name] if field.name in current else field.default %}
+{% if field.type == 'checkbox' %}
+<label class="check">
+  <input type="hidden" name="{{ name }}" value="">
+  <input type="checkbox" name="{{ name }}" value="on"
+         {% if value in [true, 'on', 'true', 'True', '1', 1] %}checked{% endif %}>
+  <span>{{ field.label }}</span>
+</label>
+{% elif field.type == 'textarea' %}
+<label>{{ field.label }}
+  <textarea name="{{ name }}" rows="3" placeholder="{{ field.placeholder }}">{{ value }}</textarea>
+</label>
+{% elif field.type == 'number' %}
+<label>{{ field.label }}
+  <input type="number" name="{{ name }}" value="{{ value }}" placeholder="{{ field.placeholder }}">
+</label>
+{% elif field.type == 'password' %}
+<label>{{ field.label }}
+  <input type="password" name="{{ name }}" autocomplete="off"
+         value="{% if value and value.startswith('${') %}{{ value }}{% endif %}"
+         placeholder="{{ field.placeholder or (field.env_hint or '••••••••') }}">
+</label>
+{% else %}
+<label>{{ field.label }}
+  <input type="text" name="{{ name }}" value="{{ value }}" placeholder="{{ field.placeholder }}">
+</label>
+{% endif %}
+{% if field.help %}<p class="help">{{ field.help }}</p>{% endif %}
+{% if field.env_hint %}<p class="help">Consiglio: usa <code>{{ field.env_hint }}</code> definita nel <code>.env</code>.</p>{% endif %}
+{% endmacro %}

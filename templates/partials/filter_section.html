@@ -1,0 +1,37 @@
+<section id="filter-section" class="card">
+  <h2>1. Filtra le righe</h2>
+  {% if filter_error %}<div class="alert alert-error">{{ filter_error }}</div>{% endif %}
+
+  <form class="filter-form"
+        hx-get="/jobs/{{ job.id }}/filter/values"
+        hx-target="#filter-values"
+        hx-swap="outerHTML">
+    <label>Campo di filtro
+      <select name="field" hx-trigger="change" hx-get="/jobs/{{ job.id }}/filter/values" hx-target="#filter-values">
+        {% for h in headers %}
+        <option value="{{ h }}" {% if h == selected_field %}selected{% endif %}>{{ h }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>Ricerca valori
+      <input type="search" name="search" placeholder="digita per filtrare…"
+             hx-trigger="keyup changed delay:300ms" hx-get="/jobs/{{ job.id }}/filter/values" hx-target="#filter-values">
+    </label>
+  </form>
+
+  {% include "partials/filter_values.html" %}
+
+  <div class="actions">
+    <button class="btn btn-primary"
+            hx-post="/jobs/{{ job.id }}/filter"
+            hx-target="#filter-section"
+            hx-swap="outerHTML"
+            hx-include="#filter-section input[name='values'], #filter-section select[name='field']">
+      Applica filtro
+    </button>
+    {% if filter_selected is defined and filter_selected %}
+    <span class="muted">{{ filter_selected }} righe selezionate</span>
+    {% endif %}
+    <span class="muted small">Selezione vuota = tutte le righe.</span>
+  </div>
+</section>

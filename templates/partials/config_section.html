@@ -1,0 +1,80 @@
+{% from "macros/forms.html" import field_input %}
+<section id="config-section" class="card">
+  <h2>2. Sorgente, destinazione e nome file</h2>
+  {% if saved %}
+    {% if config_errors %}
+      <div class="alert alert-error">Configurazione salvata ma non valida:<br>
+        {% for e in config_errors %}<div>• {{ e }}</div>{% endfor %}
+      </div>
+    {% else %}
+      <div class="alert alert-ok">Configurazione salvata.</div>
+    {% endif %}
+  {% endif %}
+
+  <form class="stack"
+        hx-post="/jobs/{{ job.id }}/config"
+        hx-target="#config-section"
+        hx-swap="outerHTML">
+    <div class="grid2">
+      <label>Campo codice prodotto
+        <select name="code_field">
+          {% for h in headers %}
+          <option value="{{ h }}" {% if h == job.code_field %}selected{% endif %}>{{ h }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>Template nome file
+        <input type="text" name="filename_template" value="{{ job.filename_template }}"
+               placeholder="{codice}.jpg">
+        <p class="help">Placeholder: <code>{codice}</code>, <code>{indice}</code> e ogni header del CSV
+          (es. <code>{categoria}</code>). L'estensione viene dedotta dal content-type se mancante.</p>
+      </label>
+    </div>
+
+    <div class="grid2">
+      <label>Sorgente immagini
+        <select name="source_type" id="source_type"
+                hx-get="/jobs/{{ job.id }}/config/form?kind=source" hx-target="#source-fields" hx-trigger="change">
+          <option value="">— seleziona —</option>
+          {% for s in sources %}
+          <option value="{{ s.type }}" {% if s.type == job.source_type %}selected{% endif %}>{{ s.label }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>Destinazione
+        <select name="dest_type" id="dest_type"
+                hx-get="/jobs/{{ job.id }}/config/form?kind=dest" hx-target="#dest-fields" hx-trigger="change">
+          <option value="">— seleziona —</option>
+          {% for d in destinations %}
+          <option value="{{ d.type }}" {% if d.type == job.dest_type %}selected{% endif %}>{{ d.label }}</option>
+          {% endfor %}
+        </select>
+      </label>
+    </div>
+
+    <div class="grid2">
+      <div id="source-fields">
+        {% set spec = sources | selectattr('type', 'equalto', job.source_type) | first %}
+        {% if spec %}{% set kind = 'src' %}{% set current = job.source_config %}{% include "partials/config_fields.html" %}
+        {% else %}<div id="src-fields" class="fields"><p class="muted">Seleziona una sorgente per vedere i parametri.</p></div>{% endif %}
+      </div>
+      <div id="dest-fields">
+        {% set spec = destinations | selectattr('type', 'equalto', job.dest_type) | first %}
+        {% if spec %}{% set kind = 'dst' %}{% set current = job.dest_config %}{% include "partials/config_fields.html" %}
+        {% else %}<div id="dst-fields" class="fields"><p class="muted">Seleziona una destinazione per vedere i parametri.</p></div>{% endif %}
+      </div>
+    </div>
+
+    <label>In caso di file già presente
+      <select name="conflict">
+        {% for value, label in conflict_options %}
+        <option value="{{ value }}" {% if value == job.conflict_strategy %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </label>
+
+    <div class="actions">
+      <button type="submit" class="btn btn-primary">Salva configurazione</button>
+    </div>
+  </form>
+</section>

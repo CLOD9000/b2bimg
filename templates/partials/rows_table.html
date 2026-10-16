@@ -1,0 +1,58 @@
+<div id="rows-table">
+  <div class="row-filters">
+    <a href="/jobs/{{ job.id }}?row_status=&page=1" class="chip {% if not row_status %}chip-on{% endif %}">tutte ({{ counts.pending + counts.selected + counts.downloaded + counts.not_found + counts.error + counts.skipped }})</a>
+    <a href="/jobs/{{ job.id }}?row_status=downloaded&page=1" class="chip {% if row_status == 'downloaded' %}chip-on{% endif %}">✓ scaricate ({{ counts.downloaded }})</a>
+    <a href="/jobs/{{ job.id }}?row_status=not_found&page=1" class="chip {% if row_status == 'not_found' %}chip-on{% endif %}">⚠ non trovate ({{ counts.not_found }})</a>
+    <a href="/jobs/{{ job.id }}?row_status=error&page=1" class="chip {% if row_status == 'error' %}chip-on{% endif %}">✗ errori ({{ counts.error }})</a>
+    <a href="/jobs/{{ job.id }}?row_status=pending&page=1" class="chip {% if row_status == 'pending' %}chip-on{% endif %}">in attesa ({{ counts.pending }})</a>
+    <a href="/jobs/{{ job.id }}?row_status=skipped&page=1" class="chip {% if row_status == 'skipped' %}chip-on{% endif %}">esclusi ({{ counts.skipped }})</a>
+  </div>
+
+  {% if not rows %}
+  <p class="muted">Nessuna riga con questo stato.</p>
+  {% else %}
+  <table class="table table-rows">
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Codice</th>
+        <th>Stato</th>
+        <th>Sorgente</th>
+        <th>Output</th>
+        <th>Dim.</th>
+        <th>Dettaglio</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for row in rows %}
+      <tr class="row-{{ row.status }}">
+        <td class="muted">{{ row.idx + 1 }}</td>
+        <td class="mono">{{ row.code or '—' }}</td>
+        <td>
+          <span class="status status-{{ row.status }}">
+            {{ status_icon(row.status) }} {{ status_label(row.status) }}
+          </span>
+        </td>
+        <td class="small">{{ row.source_used or '—' }}</td>
+        <td class="small mono">{{ row.output_path.split('/')[-1] if row.output_path else '—' }}</td>
+        <td class="small">{{ row.file_size if row.file_size else '—' }}</td>
+        <td class="small muted" title="{{ row.resolved_location }}">{{ row.message[:120] }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+
+  {% if pages > 1 %}
+  <div class="pagination">
+    {% for p in range(1, pages + 1) %}
+      {% if p == page or p == 1 or p == pages or (p >= page - 2 and p <= page + 2) %}
+      <a class="chip {% if p == page %}chip-on{% endif %}"
+         href="/jobs/{{ job.id }}?row_status={{ row_status }}&page={{ p }}">{{ p }}</a>
+      {% elif p == page - 3 or p == page + 3 %}
+      <span class="muted">…</span>
+      {% endif %}
+    {% endfor %}
+  </div>
+  {% endif %}
+</div>

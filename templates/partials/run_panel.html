@@ -1,0 +1,54 @@
+<section id="run-section" class="card"
+         {% if progress.status == 'running' %}
+         hx-get="/jobs/{{ job.id }}/run?row_status={{ row_status }}&page={{ page }}"
+         hx-trigger="every 2s"
+         hx-target="#run-section"
+         hx-swap="outerHTML"
+         {% endif %}>
+  <h2>3. Esecuzione</h2>
+
+  {% if start_errors %}
+  <div class="alert alert-error">
+    Impossibile avviare il job:
+    {% for e in start_errors %}<div>• {{ e }}</div>{% endfor %}
+  </div>
+  {% endif %}
+
+  <div class="progress-meta">
+    <span>Stato: <strong class="badge badge-{{ job.status }}">{{ job.status }}</strong></span>
+    <span>{{ progress.done }} / {{ progress.processable }} righe elaborate ({{ progress.percent }}%)</span>
+    <span class="ok">✓ {{ counts.downloaded }}</span>
+    <span class="warn">⚠ {{ counts.not_found }}</span>
+    <span class="err">✗ {{ counts.error }}</span>
+    {% if counts.skipped %}<span class="muted">esclusi: {{ counts.skipped }}</span>{% endif %}
+  </div>
+  <div class="progress" role="progressbar" aria-valuenow="{{ progress.percent }}">
+    <div class="bar {% if progress.percent == 100 %}bar-full{% endif %}" style="width: {{ progress.percent }}%"></div>
+  </div>
+
+  {% if job.error %}<div class="alert alert-error">{{ job.error }}</div>{% endif %}
+
+  <div class="actions">
+    {% if job.status in ['draft', 'ready', 'completed', 'failed'] %}
+    <button class="btn btn-primary"
+            hx-post="/jobs/{{ job.id }}/start" hx-target="#run-section" hx-swap="outerHTML">
+      {% if job.status in ['completed', 'failed'] and counts.error + counts.not_found > 0 %}Rielabora in attesa{% else %}Avvia job{% endif %}
+    </button>
+    {% endif %}
+    {% if counts.error + counts.not_found > 0 and job.status != 'running' %}
+    <button class="btn"
+            hx-post="/jobs/{{ job.id }}/retry-failed" hx-target="#run-section" hx-swap="outerHTML">
+      Riprova solo falliti ({{ counts.error + counts.not_found }})
+    </button>
+    {% endif %}
+    {% if job.status == 'running' %}
+    <button class="btn btn-danger"
+            hx-post="/jobs/{{ job.id }}/cancel" hx-target="#run-section" hx-swap="outerHTML">
+      Annulla
+    </button>
+    {% endif %}
+    <a class="btn" href="/jobs/{{ job.id }}/report.csv">Scarica report CSV</a>
+  </div>
+
+  {% include "partials/rows_table.html" %}
+</section>

@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}Accedi — b2bimg{% endblock %}
+{% block content %}
+<div class="card narrow">
+  <h1>Accedi</h1>
+  <p class="muted">Portale interno: l'accesso è riservato agli utenti configurati.</p>
+  {% if error %}<div class="alert alert-error">{{ error }}</div>{% endif %}
+  <form method="post" action="/login" class="stack">
+    <label>Username
+      <input type="text" name="username" value="{{ username }}" autocomplete="username" required autofocus>
+    </label>
+    <label>Password
+      <input type="password" name="password" autocomplete="current-password" required>
+    </label>
+    <button type="submit" class="btn btn-primary">Accedi</button>
+  </form>
+</div>
+{% endblock %}
