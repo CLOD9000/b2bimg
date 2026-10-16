@@ -19,7 +19,7 @@ services:
     image: b2bimg:latest
     container_name: b2bimg
     env_file:
-      - .env
+      - stack.env
     environment:
       # dentro il container serve bindare su tutte le interfacce: l'isolamento
       # è garantito da "ports: 127.0.0.1:" e/o dal reverse proxy.
