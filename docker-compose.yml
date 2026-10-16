@@ -24,17 +24,17 @@ services:
       # dentro il container serve bindare su tutte le interfacce: l'isolamento
       # è garantito da "ports: 127.0.0.1:" e/o dal reverse proxy.
       APP_HOST: 192.168.9.14
-      APP_PORT: "8000"
+      APP_PORT: "8001"
       DATA_DIR: /data
     volumes:
       - /home/dockeradmin/stacks/b2bimg:/data                      # SQLite, upload e output
       - /home/dockeradmin/stacks/b2bimg/images:/data/images:ro               # sorgente locale (opzionale)
       - /home/dockeradmin/stacks/b2bimg/output:/data/output                  # destinazione locale (opzionale)
     ports:
-      - "8001:8000"                  # accessibile solo da localhost
+      - "8001:8001"                  # accessibile solo da localhost
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "python", "-c", "import sys,urllib.request; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8001/healthz', timeout=4).status == 200 else 1)"]
+      test: ["CMD", "python", "-c", "import sys,urllib.request; sys.exit(0 if urllib.request.urlopen('http://192.168.9.14:8001/healthz', timeout=4).status == 200 else 1)"]
       interval: 30s
       timeout: 5s
       retries: 3
