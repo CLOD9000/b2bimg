@@ -42,23 +42,6 @@ services:
     security_opt:
       - no-new-privileges:true
 
-  # Profilo opzionale: reverse proxy con basic auth per l'accesso in LAN.
-  #   docker compose --profile proxy up -d
-  # Richiede docker/htpasswd (crea con: htpasswd -c docker/htpasswd utente)
-  proxy:
-    image: nginx:1.27-alpine
-    container_name: b2bimg-proxy
-    profiles: ["proxy"]
-    depends_on:
-      app:
-        condition: service_healthy
-    volumes:
-      - /home/dockeradmin/stacks/nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
-      - /home/dockeradmin/stacks/nginx/htpasswd:/etc/nginx/htpasswd:ro
-    ports:
-      - "8080:8080"
-    restart: unless-stopped
-    security_opt:
-      - no-new-privileges:true
+
 
 
