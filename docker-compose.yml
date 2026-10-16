@@ -31,7 +31,7 @@ services:
       - /home/dockeradmin/stacks/b2bimg/images:/data/images:ro               # sorgente locale (opzionale)
       - /home/dockeradmin/stacks/b2bimg/output:/data/output                  # destinazione locale (opzionale)
     ports:
-      - "127.0.0.1:8001:8000"                  # accessibile solo da localhost
+      - "8001:8000"                  # accessibile solo da localhost
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "python", "-c", "import sys,urllib.request; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8001/healthz', timeout=4).status == 200 else 1)"]
