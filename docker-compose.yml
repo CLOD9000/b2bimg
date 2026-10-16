@@ -27,6 +27,13 @@ services:
       APP_HOST: 0.0.0.0
       APP_PORT: "8001"
       DATA_DIR: /data
+    # Sovrascrive il CMD dell'immagine: ha effetto anche su immagini già buildate.
+    # "$${APP_PORT}" -> Compose lascia la stringa letterale al container, che la
+    # espande a runtime con la APP_PORT dell'ambiente (8001).
+    command:
+      - sh
+      - -c
+      - exec uvicorn app.main:app --host 0.0.0.0 --port "$${APP_PORT:-8000}" --no-server-header --proxy-headers
     volumes:
       - /home/dockeradmin/stacks/b2bimg:/data                      # SQLite, upload e output
       - /home/dockeradmin/stacks/b2bimg/images:/data/images:ro               # sorgente locale (opzionale)
