@@ -1,18 +1,63 @@
-# Build and Release Folders
-bin-debug/
-bin-release/
-[Oo]bj/
-[Bb]in/
+# --- Ambiente e segreti ---
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+secrets/
 
-# Other files and folders
-.settings/
+# --- Python ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+env/
+.Python
 
-# Executables
-*.swf
-*.air
-*.ipa
-*.apk
+# --- Test / tooling ---
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
 
-# Project files, i.e. `.project`, `.actionScriptProperties` and `.flexProperties`
-# should NOT be excluded as they contain compiler settings and other important
-# information for Eclipse / Flash Builder.
+# --- IDE ---
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# --- Database e dati ---
+*.sqlite
+*.sqlite3
+*.db
+data/
+*.csv
+!tests/fixtures/*.csv
+
+# --- Immagini scaricate / file di output ---
+uploads/
+downloads/
+output/
+*.jpg
+*.jpeg
+*.png
+*.webp
+*.gif
+*.log
+
+# --- Docker ---
+# (niente da ignorare di solito, ma se usi override locali)
+docker-compose.override.yml
+
+# --- Node (se il frontend ha un build step) ---
+node_modules/
+frontend/dist/
