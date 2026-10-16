@@ -106,9 +106,15 @@ def test_config_form_partial(auth_client, uploaded_job) -> None:
     assert "cookie_env" in response.text
 
 
-@pytest.mark.parametrize("kind,expected", [("source", "url_template"), ("dest", "bucket")])
-def test_config_forms_for_all_kinds(auth_client, uploaded_job, kind, expected) -> None:
-    value = "http" if kind == "source" else "s3"
+@pytest.mark.parametrize(
+    "kind,value,expected",
+    [
+        ("source", "http", "url_template"),
+        ("source", "html", "page_template"),
+        ("dest", "s3", "bucket"),
+    ],
+)
+def test_config_forms_for_all_kinds(auth_client, uploaded_job, kind, value, expected) -> None:
     response = auth_client.get(
         f"/jobs/{uploaded_job}/config/form", params={"kind": kind, "value": value}
     )

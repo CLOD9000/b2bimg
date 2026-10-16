@@ -1,9 +1,10 @@
 # b2bimg
 
 Portale **interno e self-hosted** per la gestione e il download automatizzato delle
-immagini prodotto a partire da un listino CSV. Interroga più *sorgenti* (endpoint
-HTTP, directory locali, SFTP) per localizzare le immagini e le invia a una
-*destinazione* configurabile (directory locale, SFTP, S3/MinIO).
+immagini prodotto a partire da un listino CSV. Interroga più *sorgenti* (URL
+template HTTP, scraping di pagine HTML, directory locali, SFTP) per localizzare
+le immagini e le invia a una *destinazione* configurabile (directory locale,
+SFTP, S3/MinIO).
 
 > ⚠️ **Uso interno.** Il portale non è pensato per l'esposizione pubblica:
 > richiede login, limita le richieste verso l'esterno e va pubblicato solo su
@@ -17,8 +18,9 @@ HTTP, directory locali, SFTP) per localizzare le immagini e le invia a una
   autodetect del separatore e anteprima prima dell'import.
 - **Filtri dinamici**: scelta del campo (dropdown dagli header del CSV) e selezione
   multipla dei valori con ricerca live.
-- **Sorgenti a plugin**: `http`, `directory`, `sftp` — con timeout, retry (max 3),
-  rate limiting per sorgente e **session reuse** tramite cookie da `.env` o file.
+- **Sorgenti a plugin**: `http`, `html`, `directory`, `sftp` — con timeout, retry
+  (max 3), rate limiting per sorgente e **session reuse** tramite cookie da `.env`
+  o file.
 - **Destinazioni a plugin**: `local`, `sftp`, `s3` (MinIO/AWS) — con nome file
   configurabile (template con placeholder) e gestione conflitti
   (*sovrascrivi / rinomina / salta*).
@@ -88,7 +90,7 @@ sorgente e retry con backoff esponenziale.
 ├── plugins/
 │   ├── base.py              # interfacce ImageSource / Destination + errori
 │   ├── registry.py          # autoregistrazione dei plugin
-│   ├── sources/             # http.py, directory.py, sftp.py
+│   ├── sources/             # http.py, html.py, directory.py, sftp.py
 │   └── destinations/        # local.py, sftp.py, s3.py
 ├── templates/               # Jinja2 (+ HTMX partials)
 ├── static/                  # css + htmx.min.js (vendored, nessuna CDN)
@@ -191,6 +193,35 @@ Esempio pronto: [`examples/prodotti_esempio.csv`](examples/prodotti_esempio.csv)
 
 Il **campo codice** (usato per cercare le immagini) è scelto nell'interfaccia e
 viene proposto automaticamente su header come `codice`, `code`, `sku`, `ean`…
+
+---
+
+## Sorgente HTML (quando non conosci l'URL dell'immagine)
+
+Se non conosci il pattern dell'URL dell'immagine — o conosci **solo il dominio**
+del fornitore — usa la sorgente `html`: scarica la pagina prodotto (o i risultati
+di ricerca) ed estrae l'immagine da `og:image`, JSON-LD (`application/ld+json`)
+o dai tag `<img>`, preferendo i file il cui nome contiene il codice.
+
+Parametri principali:
+
+| Campo | Obbligo | Descrizione |
+|---|---|---|
+| `base_url` | consigliato | Dominio (es. `https://fornitore.it`). Usato per provare le ricerche più comuni. |
+| `page_template` | opzionale | Pattern della pagina prodotto (es. `https://fornitore.it/prodotto/{codice}`). Ha priorità. |
+| `search_template` | opzionale | Pattern della pagina di ricerca (es. `https://fornitore.it/?s={codice}`). |
+| `auto_discovery` | default on | Se non indichi template, prova i pattern di ricerca diffusi (`/?s=`, `/search?q=`, …). |
+| `follow_links` | default on | Dalla pagina di ricerca segue i link che contengono il codice. |
+| `max_pages` | default 8 | Numero massimo di pagine scaricate per ogni codice (ricerche + link seguiti). |
+
+Le richieste HTTP contano verso il rate limit della sorgente, quindi la scansione
+è automaticamente rallentata. Se il sito è protetto da login, vale la stessa
+**session reuse** della sorgente `http` (`cookie_env` / `cookie_file`).
+
+**Consiglio pratico:** apri il sito del fornitore, cerca un articolo a mano e
+guarda l'URL della pagina prodotto e il selettore dell'immagine; se sono
+regolari, compila `page_template` (più veloce e affidabile dell'auto-discovery).
+Se invece funziona solo la ricerca, imposta `search_template`.
 
 ---
 

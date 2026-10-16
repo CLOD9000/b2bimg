@@ -2,6 +2,6 @@
 
 from __future__ import annotations
 
-from plugins.sources import directory, http, sftp  # noqa: F401  (autoregistrazione)
+from plugins.sources import directory, html, http, sftp  # noqa: F401  (autoregistrazione)
 
-__all__ = ["directory", "http", "sftp"]
+__all__ = ["directory", "html", "http", "sftp"]
