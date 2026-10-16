@@ -21,9 +21,10 @@ services:
     env_file:
       - stack.env
     environment:
-      # dentro il container serve bindare su tutte le interfacce: l'isolamento
-      # è garantito da "ports: 127.0.0.1:" e/o dal reverse proxy.
-      APP_HOST: 192.168.9.14
+      # dentro il container il bind è SEMPRE 0.0.0.0: l'isolamento è garantito
+      # dalla mappatura "ports:" (e/o dal reverse proxy). L'IP LAN della macchina
+      # host NON è un indirizzo valido all'interno del container.
+      APP_HOST: 0.0.0.0
       APP_PORT: "8001"
       DATA_DIR: /data
     volumes:
@@ -31,10 +32,11 @@ services:
       - /home/dockeradmin/stacks/b2bimg/images:/data/images:ro               # sorgente locale (opzionale)
       - /home/dockeradmin/stacks/b2bimg/output:/data/output                  # destinazione locale (opzionale)
     ports:
-      - "8001:8001"                  # accessibile solo da localhost
+      # "host:container". Per esporre solo sulla LAN usa "192.168.9.14:8001:8001".
+      - "8001:8001"
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "python", "-c", "import sys,urllib.request; sys.exit(0 if urllib.request.urlopen('http://192.168.9.14:8001/healthz', timeout=4).status == 200 else 1)"]
+      test: ["CMD", "python", "-c", "import os,sys,urllib.request; p=os.environ.get('APP_PORT','8000'); sys.exit(0 if urllib.request.urlopen(f'http://127.0.0.1:{p}/healthz', timeout=4).status == 200 else 1)"]
       interval: 30s
       timeout: 5s
       retries: 3

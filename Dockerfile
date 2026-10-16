@@ -53,7 +53,11 @@ USER app
 EXPOSE 8000
 
 # Il container ha solo Python: l'healthcheck usa urllib (nessun curl necessario).
+# Shell form per espandere ${APP_PORT}.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-    CMD ["python", "-c", "import sys,urllib.request; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/healthz', timeout=4).status == 200 else 1)"]
+    CMD python -c "import os,sys,urllib.request; p=os.environ.get('APP_PORT','8000'); sys.exit(0 if urllib.request.urlopen(f'http://127.0.0.1:{p}/healthz', timeout=4).status == 200 else 1)"
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--no-server-header", "--proxy-headers"]
+# Il bind interno è SEMPRE 0.0.0.0 (l'IP LAN è della macchina host, non del
+# container): l'isolamento si ottiene con la mappatura "ports:" del compose.
+# La porta ascoltata segue APP_PORT. Shell form necessaria per espandere la env.
+CMD ["sh", "-c", "exec uvicorn app.main:app --host 0.0.0.0 --port \"${APP_PORT:-8000}\" --no-server-header --proxy-headers"]
