@@ -27,9 +27,9 @@ services:
       APP_PORT: "8000"
       DATA_DIR: /data
     volumes:
-      - b2bimg-data:/data                      # SQLite, upload e output
-      - ./images:/data/images:ro               # sorgente locale (opzionale)
-      - ./output:/data/output                  # destinazione locale (opzionale)
+      - /home/dockeradmin/stacks/b2bimg:/data                      # SQLite, upload e output
+      - /home/dockeradmin/stacks/b2bimg/images:/data/images:ro               # sorgente locale (opzionale)
+      - /home/dockeradmin/stacks/b2bimg/output:/data/output                  # destinazione locale (opzionale)
     ports:
       - "127.0.0.1:8000:8000"                  # accessibile solo da localhost
     restart: unless-stopped
@@ -53,14 +53,12 @@ services:
       app:
         condition: service_healthy
     volumes:
-      - ./docker/nginx.conf:/etc/nginx/conf.d/default.conf:ro
-      - ./docker/htpasswd:/etc/nginx/htpasswd:ro
+      - /home/dockeradmin/stacks/nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - /home/dockeradmin/stacks/nginx/htpasswd:/etc/nginx/htpasswd:ro
     ports:
-      - "8080:8080"
+      - "8082:8080"
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true
 
-volumes:
-  b2bimg-data:
-    driver: local
+
