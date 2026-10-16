@@ -42,6 +42,10 @@ htmlcov/
 data/
 *.csv
 !tests/fixtures/*.csv
+!examples/*.csv
+
+# --- Working dir dei test ---
+tests/_work/
 
 # --- Immagini scaricate / file di output ---
 uploads/
