@@ -7,7 +7,6 @@ import time
 import pytest
 
 CSV = (
-    b"codice,descrizione,categoria\n"
     b"AB-1001,Tastiera meccanica,periferiche\n"
     b"AB-1002,Mouse wireless,periferiche\n"
     b"AB-2001,Monitor 27,monitor\n"
@@ -65,7 +64,7 @@ def test_upload_csv_and_preview(auth_client, uploaded_job) -> None:
     page = auth_client.get(f"/jobs/{uploaded_job}")
     assert page.status_code == 200
     assert "AB-1001" in page.text          # anteprima righe
-    assert "categoria" in page.text        # header nel dropdown filtro
+    assert "colonna_3" in page.text        # header nel dropdown filtro
     assert "codice" in page.text
 
 
@@ -82,7 +81,7 @@ def test_upload_invalid_csv_rejected(auth_client) -> None:
 def test_filter_values_endpoint(auth_client, uploaded_job) -> None:
     response = auth_client.get(
         f"/jobs/{uploaded_job}/filter/values",
-        params={"field": "categoria", "search": "per"},
+        params={"field": "colonna_3", "search": "per"},
     )
     assert response.status_code == 200
     assert "periferiche" in response.text
@@ -91,7 +90,7 @@ def test_filter_values_endpoint(auth_client, uploaded_job) -> None:
 def test_filter_apply(auth_client, uploaded_job) -> None:
     response = auth_client.post(
         f"/jobs/{uploaded_job}/filter",
-        data={"field": "categoria", "values": ["monitor"]},
+        data={"field": "colonna_3", "values": ["monitor"]},
     )
     assert response.status_code == 200
     assert "1 righe selezionate" in response.text or "1 righe" in response.text
@@ -132,7 +131,7 @@ def test_full_job_flow(auth_client, uploaded_job, tmp_path) -> None:
     # 1. filtro sulle periferiche (2 righe)
     filtered = auth_client.post(
         f"/jobs/{uploaded_job}/filter",
-        data={"field": "categoria", "values": ["periferiche"]},
+        data={"field": "colonna_3", "values": ["periferiche"]},
     )
     assert filtered.status_code == 200
 

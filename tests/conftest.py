@@ -85,7 +85,6 @@ def db_session_factory():
 @pytest.fixture()
 def csv_bytes() -> bytes:
     return (
-        b"codice,descrizione,categoria\n"
         b"AB-1001,Tastiera meccanica,periferiche\n"
         b"AB-1002,Mouse wireless,periferiche\n"
         b"AB-2001,Monitor 27,monitor\n"

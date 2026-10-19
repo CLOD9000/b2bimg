@@ -14,8 +14,9 @@ SFTP, S3/MinIO).
 
 ## Funzionalità
 
-- **Upload CSV** con validazione di header ed encoding (UTF-8 con/senza BOM, Windows-1252),
-  autodetect del separatore e anteprima prima dell'import.
+- **Import CSV e XLSX**: nessuna riga di intestazione, il codice prodotto è
+  sempre nella prima colonna; encoding UTF-8/Windows-1252 e separatore CSV
+  rilevati automaticamente, anteprima prima dell'import.
 - **Filtri dinamici**: scelta del campo (dropdown dagli header del CSV) e selezione
   multipla dei valori con ricerca live.
 - **Sorgenti a plugin**: `http`, `html`, `directory`, `sftp` — con timeout, retry
@@ -39,6 +40,7 @@ SFTP, S3/MinIO).
 | Database  | SQLite (PostgreSQL via `DATABASE_URL`)              |
 | Job       | APScheduler (thread pool in-process)                |
 | HTTP/SFTP | httpx · paramiko · boto3                            |
+| Import    | Python `csv` + openpyxl (XLSX)                      |
 | Container | Docker multi-stage, utente non-root, healthcheck    |
 
 ---
@@ -166,7 +168,7 @@ Tutte le chiavi sono documentate in [`.env.example`](.env.example). Sintesi:
 | `LOGIN_MAX_ATTEMPTS` | `5` | Tentativi di login per finestra. |
 | `LOGIN_WINDOW_SECONDS` | `300` | Finestra del rate limit di login. |
 | `DATA_DIR` | `data` | Base per DB, upload, output. In Docker: `/data`. |
-| `MAX_UPLOAD_MB` | `20` | Dimensione massima del CSV. |
+| `MAX_UPLOAD_MB` | `20` | Dimensione massima del file (CSV/XLSX). |
 | `MAX_IMAGE_MB` | `25` | Dimensione massima per immagine. |
 | `SOURCE_RATE_LIMIT_PER_MIN` | `30` | Richieste/minuto per sorgente (0 = illimitato). |
 | `SOURCE_DEFAULT_TIMEOUT` | `15` | Timeout di default (s) per sorgente. |
@@ -176,23 +178,26 @@ Tutte le chiavi sono documentate in [`.env.example`](.env.example). Sintesi:
 
 ---
 
-## Formato CSV
+## Formato dei file
 
-- Prima riga = **header**. Separatore rilevato automaticamente (`,` `;` tab `|`).
-- Encoding accettato: **UTF-8** (con/senza BOM) e **Windows-1252**.
-- Header duplicati rinominati automaticamente; righe vuote ignorate.
+Formati accettati: **CSV** e **XLSX** (senza macro).
 
-```csv
-codice,descrizione,categoria,fornitore
+- **Nessuna riga di intestazione**: la prima riga è già un dato.
+- Il **codice prodotto** è sempre nella **prima colonna**.
+- Le colonne sono denominate in modo automatico: `codice`, `colonna_2`, `colonna_3`, …
+  (il campo `codice` è preselezionato come codice prodotto).
+- CSV: encoding **UTF-8** (con/senza BOM) o **Windows-1252**; separatore rilevato
+  automaticamente (`,` `;` tab `|`).
+- XLSX: viene letto il primo foglio; tutte le celle sono convertite in testo.
+- Righe vuote ignorate; massimo 200.000 righe e 80 colonne per file.
+
+```
 AB-1001,Tastiera meccanica,periferiche,Logitech
 AB-1002,Mouse wireless,periferiche,Logitech
 AB-2001,Monitor 27,monitor,Dell
 ```
 
 Esempio pronto: [`examples/prodotti_esempio.csv`](examples/prodotti_esempio.csv).
-
-Il **campo codice** (usato per cercare le immagini) è scelto nell'interfaccia e
-viene proposto automaticamente su header come `codice`, `code`, `sku`, `ean`…
 
 ---
 
@@ -304,11 +309,11 @@ class DestinationWebDAV(Destination):
 
 ```bash
 pip install -r requirements-dev.txt
-pytest -q            # 83+ test
+pytest -q            # 100+ test
 ruff check .         # lint
 ```
 
-I test coprono: parsing CSV (encoding/separatore/validazioni), filtri, plugin
+I test coprono: parsing CSV/XLSX (encoding/separatore/validazioni), filtri, plugin
 sorgente e destinazione con mocking (httpx.MockTransport, paramiko/boto3 mock),
 retry e job engine end-to-end, e il flusso web completo (login → upload → filtro →
 config → avvio → report).

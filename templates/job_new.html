@@ -9,26 +9,26 @@
 {% if error %}<div class="alert alert-error">{{ error }}</div>{% endif %}
 
 <div class="card">
-  <h2>1. Carica il CSV prodotti</h2>
+  <h2>1. Carica il listino prodotti</h2>
   <p class="muted">
-    Formati accettati: <strong>UTF-8</strong> (con o senza BOM) e <strong>Windows-1252</strong>.
-    Separatore rilevato automaticamente ( <code>,</code> <code>;</code> tab <code>|</code> ).
-    La prima riga deve contenere gli header.
+    Formati accettati: <strong>CSV</strong> e <strong>XLSX</strong> (senza riga di intestazione).
+    Il codice prodotto è sempre nella <strong>prima colonna</strong>.
+    CSV: <strong>UTF-8</strong> (con o senza BOM) o <strong>Windows-1252</strong>,
+    separatore rilevato automaticamente ( <code>,</code> <code>;</code> tab <code>|</code> ).
   </p>
   <form method="post" action="/jobs/upload" enctype="multipart/form-data" class="stack">
     <label>Nome job (opzionale)
       <input type="text" name="name" placeholder="es. Listino spring 2026">
     </label>
-    <label>File CSV
-      <input type="file" name="file" accept=".csv,text/csv" required>
+    <label>File prodotti (CSV o XLSX)
+      <input type="file" name="file" accept=".csv,.xlsx,.xlsm,text/csv" required>
     </label>
     <button type="submit" class="btn btn-primary">Carica e crea il job</button>
   </form>
 
   <details class="hint">
-    <summary>Esempio CSV</summary>
-<pre>codice,descrizione,categoria
-AB-1001,Tastiera meccanica,periferiche
+    <summary>Esempio</summary>
+<pre>AB-1001,Tastiera meccanica,periferiche
 AB-1002,Mouse wireless,periferiche
 AB-2001,Monitor 27",monitor</pre>
     <p class="muted small">Un esempio completo è in <code>examples/prodotti_esempio.csv</code>.</p>

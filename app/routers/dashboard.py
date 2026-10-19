@@ -13,7 +13,7 @@ from app.config import get_settings
 from app.deps import SessionDep, UserDep
 from app.models import Job, JobRow, JobStatus, RowStatus
 from app.pathutil import sanitize_filename
-from app.services.csv_service import CSVValidationError, parse_csv
+from app.services.csv_service import CSVValidationError, parse_file
 from app.templating import templates
 
 router = APIRouter()
@@ -78,7 +78,7 @@ async def upload_csv(
                 status_code=413,
             )
     try:
-        parsed = parse_csv(bytes(raw))
+        parsed = parse_file(file.filename or "prodotti.csv", bytes(raw))
     except CSVValidationError as exc:
         return templates.TemplateResponse(
             request,

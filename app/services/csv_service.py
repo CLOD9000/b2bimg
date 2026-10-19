@@ -1,13 +1,30 @@
-"""Parsing e validazione dei CSV prodotti (UTF-8 / Windows-1252)."""
+"""Parsing e validazione di file CSV/XLSX prodotti.
+
+- Nessuna riga di intestazione: il codice prodotto è sempre nella **prima colonna**.
+- CSV: decodifica UTF-8 (con/senza BOM) o Windows-1252, rilevazione separatore.
+- XLSX: lettura del primo foglio, tutte le celle convertite in testo.
+- Header sintetizzati: ``codice, colonna_2, colonna_3, ...``
+"""
 
 from __future__ import annotations
 
 import csv
 import io
 from dataclasses import dataclass, field
+from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+
+try:
+    from openpyxl import load_workbook
+except Exception:  # pragma: no cover
+    load_workbook = None  # type: ignore[assignment]
 
 MAX_COLUMNS = 80
-MAX_HEADER_LEN = 120
+
+XLSX_EXTS = (".xlsx", ".xlsm", ".xltx", ".xltm")
 
 
 class CSVValidationError(ValueError):
@@ -16,12 +33,12 @@ class CSVValidationError(ValueError):
 
 @dataclass
 class ParsedCSV:
-    """Risultato del parsing: header normalizzati + righe come dict."""
+    """Risultato del parsing: header sintetizzati + righe come dict."""
 
     headers: list[str]
     rows: list[dict[str, str]]
-    encoding: str
-    delimiter: str
+    encoding: str = "utf-8"
+    delimiter: str = ","
     warnings: list[str] = field(default_factory=list)
 
     @property
@@ -29,15 +46,10 @@ class ParsedCSV:
         return len(self.rows)
 
     def preview(self, limit: int = 5) -> list[dict[str, str]]:
-        """Prime `limit` righe per l'anteprima prima dell'import."""
         return self.rows[:limit]
 
 
 def decode_bytes(raw: bytes) -> tuple[str, str]:
-    """Decodifica il file provando UTF-8 (con BOM) e Windows-1252.
-
-    Restituisce `(testo, encoding_usato)`.
-    """
     if not raw.strip():
         raise CSVValidationError("Il file è vuoto.")
     if raw.startswith(b"\xef\xbb\xbf"):
@@ -55,7 +67,6 @@ def decode_bytes(raw: bytes) -> tuple[str, str]:
 
 
 def detect_delimiter(sample: str) -> str:
-    """Individua il separatore (`,`, `;`, tab, `|`) con fallback sul più frequente."""
     try:
         dialect = csv.Sniffer().sniff(sample, delimiters=",;\t|")
         return dialect.delimiter
@@ -67,59 +78,95 @@ def detect_delimiter(sample: str) -> str:
     return best if counts[best] > 0 else ","
 
 
-def _normalize_headers(raw_headers: list[str]) -> tuple[list[str], list[str]]:
+def _synthesize_headers(n_cols: int) -> list[str]:
     headers: list[str] = []
-    warnings: list[str] = []
-    seen: dict[str, int] = {}
-    for index, raw in enumerate(raw_headers):
-        name = (raw or "").strip()[:MAX_HEADER_LEN] or f"colonna_{index + 1}"
-        if name in seen:
-            seen[name] += 1
-            new_name = f"{name}_{seen[name]}"
-            warnings.append(f"Header duplicato '{name}' rinominato in '{new_name}'.")
-            name = new_name
+    for i in range(n_cols):
+        if i == 0:
+            headers.append("codice")
         else:
-            seen[name] = 1
-        headers.append(name)
-    if not any(h.strip() for h in headers):
-        raise CSVValidationError("Header vuoti: il file deve avere una riga di intestazione.")
-    return headers, warnings
+            headers.append(f"colonna_{i + 1}")
+    return headers
+
+
+def _row_to_dict(headers: list[str], values: list[str]) -> dict[str, str]:
+    out: dict[str, str] = {}
+    for i, h in enumerate(headers):
+        out[h] = values[i] if i < len(values) else ""
+    return out
 
 
 def parse_csv(raw: bytes) -> ParsedCSV:
-    """Valida e converte un file CSV in righe dizionarie."""
     text, encoding = decode_bytes(raw)
     delimiter = detect_delimiter(text[:8192])
     reader = csv.reader(io.StringIO(text, newline=""), delimiter=delimiter)
-    try:
-        raw_headers = next(reader)
-    except StopIteration as exc:
-        raise CSVValidationError("Il file non contiene righe.") from exc
-    except csv.Error as exc:
-        raise CSVValidationError(f"CSV non valido: {exc}") from exc
-
-    headers, warnings = _normalize_headers(raw_headers)
-    if len(headers) > MAX_COLUMNS:
-        raise CSVValidationError(f"Troppe colonne ({len(headers)}): massimo {MAX_COLUMNS}.")
-
-    rows: list[dict[str, str]] = []
+    rows_values: list[list[str]] = []
     for values in reader:
         if not any(str(v).strip() for v in values):
-            continue  # salta righe completamente vuote
-        row = {
-            headers[i]: (values[i].strip() if i < len(values) else "")
-            for i in range(len(headers))
-        }
-        if not any(row.values()):
             continue
-        rows.append(row)
-        if len(rows) > 200_000:
-            raise CSVValidationError("Troppe righe: massimo 200.000 righe per file.")
-
-    if not rows:
+        rows_values.append([str(v).strip() for v in values])
+    if not rows_values:
         raise CSVValidationError("Il file non contiene righe di dati.")
+    n_cols = max(len(v) for v in rows_values) if rows_values else 0
+    if n_cols == 0 or n_cols > MAX_COLUMNS:
+        if n_cols > MAX_COLUMNS:
+            raise CSVValidationError(f"Troppe colonne ({n_cols}): massimo {MAX_COLUMNS}.")
+        raise CSVValidationError("Il file non contiene righe di dati.")
+    headers = _synthesize_headers(n_cols)
+    rows: list[dict[str, str]] = []
+    for v in rows_values:
+        padded = list(v) + [""] * (n_cols - len(v))
+        rows.append(_row_to_dict(headers, padded))
+    if len(rows) > 200_000:
+        raise CSVValidationError("Troppe righe: massimo 200.000 righe per file.")
+    return ParsedCSV(headers=headers, rows=rows, encoding=encoding, delimiter=delimiter)
 
-    # verifica coerenza: almeno una colonna con valori non vuoti
-    return ParsedCSV(
-        headers=headers, rows=rows, encoding=encoding, delimiter=delimiter, warnings=warnings
-    )
+
+def _iter_xlsx(raw: bytes) -> Iterator[list[str]]:
+    if load_workbook is None:
+        raise CSVValidationError(
+            "openpyxl non disponibile. Installa le dipendenze (pip install -r requirements.txt)."
+        )
+    bio = io.BytesIO(raw)
+    wb = load_workbook(bio, data_only=True, read_only=True)
+    sheet = wb.active
+    for row in sheet.iter_rows(values_only=True):
+        values: list[str] = []
+        for v in row:
+            if v is None:
+                values.append("")
+            else:
+                values.append(str(v).strip())
+        if all(not x for x in values):
+            continue
+        if len(values) > MAX_COLUMNS:
+            values = values[:MAX_COLUMNS]
+        yield values
+    wb.close()
+
+
+def parse_xlsx(raw: bytes) -> ParsedCSV:
+    rows_values: list[list[str]] = []
+    for v in _iter_xlsx(raw):
+        rows_values.append(v)
+    if not rows_values:
+        raise CSVValidationError("Il file XLSX non contiene righe di dati.")
+    n_cols = max(len(v) for v in rows_values)
+    if n_cols == 0 or n_cols > MAX_COLUMNS:
+        if n_cols > MAX_COLUMNS:
+            raise CSVValidationError(f"Troppe colonne ({n_cols}): massimo {MAX_COLUMNS}.")
+        raise CSVValidationError("Il file XLSX non contiene righe di dati.")
+    headers = _synthesize_headers(n_cols)
+    rows: list[dict[str, str]] = []
+    for v in rows_values:
+        padded = list(v) + [""] * (n_cols - len(v))
+        rows.append(_row_to_dict(headers, padded))
+    if len(rows) > 200_000:
+        raise CSVValidationError("Troppe righe: massimo 200.000 righe per file.")
+    return ParsedCSV(headers=headers, rows=rows, encoding="utf-8", delimiter="xlsx")
+
+
+def parse_file(filename: str | Path, raw: bytes) -> ParsedCSV:
+    name = str(filename).lower()
+    if name.endswith(XLSX_EXTS) or name.endswith(".xls"):
+        return parse_xlsx(raw)
+    return parse_csv(raw)
