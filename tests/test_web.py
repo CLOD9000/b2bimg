@@ -156,6 +156,9 @@ def test_full_job_flow(auth_client, uploaded_job, tmp_path) -> None:
     # 3. avvio
     started = auth_client.post(f"/jobs/{uploaded_job}/start")
     assert started.status_code == 200
+    # La risposta di avvio deve attivare subito il polling (o mostrare il
+    # risultato già completato), senza dover uscire e rientrare nella pagina.
+    assert "hx-trigger" in started.text or "badge-completed" in started.text
 
     # 4. attesa completamento (polling come fa htmx)
     deadline = time.time() + 30

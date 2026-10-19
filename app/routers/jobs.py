@@ -62,6 +62,7 @@ def _run_context(db, job: Job, row_status: str = "", page: int = 1) -> dict:
         "row_status": row_status,
         "pages": max((total + PAGE_SIZE - 1) // PAGE_SIZE, 1),
         "start_errors": [],
+        "force_poll": False,
     }
 
 
@@ -307,8 +308,10 @@ def start(
         job_engine.start_job(job_id)
     except RuntimeError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
+    job_engine.wait_for_start(job_id)
+    db.expire(job)
     ctx = _run_context(db, job, "")
-    ctx.update({"user": user, "start_errors": []})
+    ctx.update({"user": user, "start_errors": [], "force_poll": True})
     return templates.TemplateResponse(request, "partials/run_panel.html", ctx)
 
 
@@ -344,8 +347,10 @@ def retry_failed(
     job.status = JobStatus.READY.value
     db.commit()
     job_engine.start_job(job_id)
+    job_engine.wait_for_start(job_id)
+    db.expire(job)
     ctx = _run_context(db, job, "")
-    ctx.update({"user": user, "start_errors": []})
+    ctx.update({"user": user, "start_errors": [], "force_poll": True})
     return templates.TemplateResponse(request, "partials/run_panel.html", ctx)
 
 

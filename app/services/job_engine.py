@@ -213,6 +213,32 @@ def start_job(job_id: str) -> None:
     )
 
 
+def wait_for_start(job_id: str, timeout: float = 2.0) -> str:
+    """Attende che il worker prenda in carico il job (massimo ``timeout`` secondi).
+
+    Serve a far sì che la risposta HTMX di avvio rifletta già lo stato
+    ``running`` e quindi attivi il polling del pannello, invece di mostrare
+    ``ready`` e restare ferma.
+    """
+    terminal_or_running = {
+        JobStatus.RUNNING.value,
+        JobStatus.COMPLETED.value,
+        JobStatus.FAILED.value,
+        JobStatus.CANCELLED.value,
+    }
+    deadline = time.monotonic() + timeout
+    last = ""
+    with get_sessionmaker()() as db:
+        while True:
+            status = db.scalar(select(Job.status).where(Job.id == job_id))
+            if status is None:
+                return ""
+            last = str(status)
+            if last in terminal_or_running or time.monotonic() >= deadline:
+                return last
+            time.sleep(0.05)
+
+
 def stop_job(job_id: str) -> None:
     if _SCHEDULER is not None:
         with contextlib.suppress(Exception):

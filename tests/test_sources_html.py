@@ -151,6 +151,68 @@ def test_html_only_domain_follows_search_link() -> None:
     assert result.location == "https://fornitore.test/img/AB-7.jpg"
 
 
+def test_html_only_domain_ignores_generic_search_image() -> None:
+    """La pagina di ricerca (e le pagine generiche) non devono fornire l'immagine."""
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        path = request.url.path
+        if path in {"/", "/search", "/ricerca"}:
+            # Ricerca senza risultati, ma con l'og:image generico del sito e un
+            # link a una pagina generica (categoria) che non cita il codice.
+            return httpx.Response(
+                200,
+                text=(
+                    '<meta property="og:image" content="/logo.png">'
+                    '<a href="/categoria/varie">Varie</a>'
+                    "<p>0 risultati</p>"
+                ),
+                headers={"content-type": "text/html"},
+            )
+        if path == "/categoria/varie":
+            return httpx.Response(
+                200,
+                text='<meta property="og:image" content="/banner.png">',
+                headers={"content-type": "text/html"},
+            )
+        if path in {"/logo.png", "/banner.png"}:
+            return httpx.Response(200, content=JPEG, headers={"content-type": "image/jpeg"})
+        return httpx.Response(404)
+
+    source = _html_source(handler, auto_discovery=True, follow_links=True, max_pages="4")
+    with pytest.raises(NotFoundError):
+        source.fetch("AB-999")
+
+
+def test_html_product_page_without_code_in_url() -> None:
+    """Il codice può comparire nel testo della pagina, non solo nell'URL."""
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        path = request.url.path
+        if path == "/" and "s=AB-8" in request.url.query.decode():
+            return httpx.Response(
+                200,
+                text='<a href="/p/12345">AB-8 Prodotto</a>',
+                headers={"content-type": "text/html"},
+            )
+        if path == "/p/12345":
+            return httpx.Response(
+                200,
+                text=(
+                    "<h1>AB-8 Prodotto</h1>"
+                    '<meta property="og:image" content="/media/foto.jpg">'
+                ),
+                headers={"content-type": "text/html"},
+            )
+        if path == "/media/foto.jpg":
+            return httpx.Response(200, content=JPEG, headers={"content-type": "image/jpeg"})
+        return httpx.Response(404)
+
+    source = _html_source(handler, auto_discovery=True, follow_links=True)
+    result = source.fetch("AB-8")
+    assert result.content == JPEG
+    assert result.location == "https://fornitore.test/media/foto.jpg"
+
+
 def test_html_no_config_raises_config_error() -> None:
     source = SourceHTML(
         {"base_url": "", "auto_discovery": False},

@@ -136,22 +136,27 @@ class SourceHTML(HTTPImageMixin, ImageSource):
             raise ConfigError(f"solo URL http/https sono consentiti: {url!r}")
         return url
 
-    def entry_urls(self, code: str) -> list[str]:
-        """Costruisce gli URL di ingresso (pagina prodotto o ricerca)."""
+    def entry_urls(self, code: str) -> list[tuple[str, str]]:
+        """Costruisce gli URL di ingresso come coppie ``(url, tipo)``.
+
+        ``tipo`` è ``"product"`` (da cui estrarre le immagini) oppure ``"search"``
+        (da cui estrarre solo i link, senza mai scaricare l'immagine generica del
+        sito).
+        """
         page_template = str(self.config.get("page_template") or "").strip()
         if page_template:
-            return [self._format(page_template, code, "page_template")]
+            return [(self._format(page_template, code, "page_template"), "product")]
 
         search_template = str(self.config.get("search_template") or "").strip()
         if search_template:
-            return [self._format(search_template, code, "search_template")]
+            return [(self._format(search_template, code, "search_template"), "search")]
 
         base_url = str(self.config.get("base_url") or "").strip().rstrip("/")
         if base_url and self.config.get("auto_discovery", True):
             if not base_url.startswith(("http://", "https://")):
                 raise ConfigError(f"solo URL http/https sono consentiti: {base_url!r}")
             return [
-                self._format(base_url + pattern, code, "ricerca")
+                (self._format(base_url + pattern, code, "ricerca"), "search")
                 for pattern in COMMON_SEARCH_PATTERNS
             ]
 
@@ -185,26 +190,41 @@ class SourceHTML(HTTPImageMixin, ImageSource):
                 return None
             return response.text
 
-        def resolve_page(url: str) -> tuple[FetchResult | None, list[str]]:
+        def resolve_page(url: str, kind: str) -> tuple[FetchResult | None, list[str]]:
             state["tried"].append(url)
             html = fetch_page(url)
             if html is None:
                 return None, []
-            for image_url in extract_image_urls(html, url, code):
-                result = self._download(image_url, url)
-                if result is not None:
-                    return result, []
+            # Le pagine di ricerca contengono l'immagine generica del sito
+            # (es. og:image): non vanno mai usate come immagine prodotto.
+            if kind == "product":
+                page_has_code = code.lower() in html.lower()
+                for image_url in extract_image_urls(html, url, code):
+                    # Se la pagina non cita il codice, accettiamo solo immagini
+                    # il cui URL lo contiene: evita di salvare l'immagine
+                    # generica di una pagina che non è quella del prodotto.
+                    if not page_has_code and code.lower() not in image_url.lower():
+                        continue
+                    result = self._download(image_url, url)
+                    if result is not None:
+                        return result, []
             follow = bool(self.config.get("follow_links", True))
-            links = extract_links(html, url, code) if follow else []
-            return None, links
+            if not follow:
+                return None, []
+            links = extract_links(html, url, code)
+            # Preferisci i link che contengono il codice; se non ce ne sono,
+            # ripiega sugli altri (alcuni siti usano ID interni negli URL).
+            preferred = [link for link in links if code.lower() in link.lower()]
+            return None, preferred or links
 
         queue = list(self.entry_urls(code))
         while queue and state["done"] < budget:
-            result, links = resolve_page(queue.pop(0))
+            url, kind = queue.pop(0)
+            result, links = resolve_page(url, kind)
             if result is not None:
                 return result
             # I link trovati hanno priorità sulle restanti pagine di ricerca.
-            queue[0:0] = links
+            queue[0:0] = [(link, "product") for link in links]
 
         tried = ", ".join(dict.fromkeys(state["tried"])) or "nessuna"
         raise NotFoundError(

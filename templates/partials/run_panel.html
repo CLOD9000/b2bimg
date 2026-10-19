@@ -1,5 +1,5 @@
 <section id="run-section" class="card"
-         {% if progress.status == 'running' %}
+         {% if progress.status == 'running' or force_poll %}
          hx-get="/jobs/{{ job.id }}/run?row_status={{ row_status }}&page={{ page }}"
          hx-trigger="every 2s"
          hx-target="#run-section"

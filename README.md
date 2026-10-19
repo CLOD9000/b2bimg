@@ -204,9 +204,11 @@ Esempio pronto: [`examples/prodotti_esempio.csv`](examples/prodotti_esempio.csv)
 ## Sorgente HTML (quando non conosci l'URL dell'immagine)
 
 Se non conosci il pattern dell'URL dell'immagine — o conosci **solo il dominio**
-del fornitore — usa la sorgente `html`: scarica la pagina prodotto (o i risultati
-di ricerca) ed estrae l'immagine da `og:image`, JSON-LD (`application/ld+json`)
-o dai tag `<img>`, preferendo i file il cui nome contiene il codice.
+del fornitore — usa la sorgente `html`: scarica la pagina prodotto ed estrae
+l'immagine da `og:image`, JSON-LD (`application/ld+json`) o dai tag `<img>`,
+preferendo i file il cui nome contiene il codice. Se parte da una pagina di
+ricerca, segue **solo** i link che contengono il codice e **non** usa l'immagine
+generica del sito (evita falsi positivi sui codici inesistenti).
 
 Parametri principali:
 
