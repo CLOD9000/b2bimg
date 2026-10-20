@@ -159,6 +159,7 @@ Tutte le chiavi sono documentate in [`.env.example`](.env.example). Sintesi:
 | `APP_HOST` | `127.0.0.1` | Interfaccia di bind (locale). In Docker: `0.0.0.0`. |
 | `APP_PORT` | `8000` | Porta di ascolto. |
 | `LOG_LEVEL` | `INFO` | Livello di log (`DEBUG`, `INFO`, `WARNING`…). |
+| `APP_BUILD` | data build Docker | Etichetta di build mostrata in home; sovrascrive il valore generato dall'immagine. |
 | `TRUSTED_HOST` | `*` | Host ammessi (anti Host-header), separati da virgola. |
 | `SECRET_KEY` | casuale | Firma dei token di sessione. **Impostala** per sessioni stabili. |
 | `ADMIN_USERNAME` | `admin` | Utente creato al primo avvio. |

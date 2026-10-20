@@ -54,6 +54,7 @@ def test_login_and_logout(client) -> None:
     home = client.get("/")
     assert home.status_code == 200
     assert "Job" in home.text
+    assert "build" in home.text
 
     client.post("/logout")
     after = client.get("/", follow_redirects=False)

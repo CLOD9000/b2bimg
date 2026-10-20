@@ -46,6 +46,10 @@ COPY templates ./templates
 COPY static ./static
 COPY pyproject.toml README.md ./
 
+# Identificativo di build mostrato nell'interfaccia (data/ora UTC dell'immagine).
+# È sovrascrivibile a runtime con la variabile d'ambiente APP_BUILD.
+RUN date -u +%Y%m%d.%H%M > /app/BUILD
+
 RUN mkdir -p /data/uploads /data/output \
     && chown -R app:app /data /app
 

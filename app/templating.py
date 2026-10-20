@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from fastapi.templating import Jinja2Templates
 
+from app.version import build_label
+
 templates = Jinja2Templates(directory="templates")
 
 
@@ -31,3 +33,4 @@ def _status_label(status: str) -> str:
 
 templates.env.globals["status_icon"] = _status_icon
 templates.env.globals["status_label"] = _status_label
+templates.env.globals["build"] = build_label()

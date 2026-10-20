@@ -228,6 +228,74 @@ def test_html_page_template_ignores_code_in_url_requirement() -> None:
     assert result.location == "https://fornitore.test/media/foto.jpg"
 
 
+def test_html_search_redirect_to_product_page_is_trusted() -> None:
+    """WooCommerce: la ricerca reindirizza alla pagina prodotto (og:type=product)."""
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        path = request.url.path
+        if path == "/" and "post_type=product" in request.url.query.decode():
+            return httpx.Response(302, headers={"location": "/prodotti/vernice-600c/"})
+        if path == "/prodotti/vernice-600c/":
+            return httpx.Response(
+                200,
+                text=(
+                    '<meta property="og:type" content="product">'
+                    '<body class="single-product">'
+                    '<meta property="og:image" content="/media/306.2085.jpg">'
+                ),
+                headers={"content-type": "text/html"},
+            )
+        if path == "/media/306.2085.jpg":
+            return httpx.Response(200, content=JPEG, headers={"content-type": "image/jpeg"})
+        return httpx.Response(404)
+
+    source = _html_source(handler, auto_discovery=True, follow_links=True)
+    result = source.fetch("306.2085.NO")
+    assert result.content == JPEG
+    assert result.location == "https://fornitore.test/media/306.2085.jpg"
+
+
+def test_html_matches_code_base_without_variant_suffix() -> None:
+    """L'immagine può chiamarsi col codice base (306.2085) senza '.NO'."""
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        path = request.url.path
+        if path == "/":
+            return httpx.Response(
+                200,
+                text='<img src="/img/306.2085-300x300.jpg">',
+                headers={"content-type": "text/html"},
+            )
+        if path == "/img/306.2085-300x300.jpg":
+            return httpx.Response(200, content=JPEG, headers={"content-type": "image/jpeg"})
+        return httpx.Response(404)
+
+    source = _html_source(handler, auto_discovery=True, follow_links=True)
+    result = source.fetch("306.2085.NO")
+    assert result.location == "https://fornitore.test/img/306.2085-300x300.jpg"
+
+
+def test_html_does_not_follow_self_and_feed_links() -> None:
+    """Breadcrumb/feed che contengono il codice non vanno trattati come prodotto."""
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            text=(
+                '<meta property="og:image" content="/bgn-bubbles-footer.png">'
+                '<a href="/?s=AB-3/#breadcrumb">breadcrumb</a>'
+                '<a href="/?s=AB-3/feed/rss2/">feed</a>'
+            ),
+            headers={"content-type": "text/html"},
+        )
+
+    source = _html_source(handler, auto_discovery=False, follow_links=True, max_pages="2")
+    source.config["base_url"] = "https://fornitore.test"
+    source.config["search_template"] = "https://fornitore.test/?s={codice}"
+    with pytest.raises(NotFoundError):
+        source.fetch("AB-3")
+
+
 def test_html_no_config_raises_config_error() -> None:
     source = SourceHTML(
         {"base_url": "", "auto_discovery": False},

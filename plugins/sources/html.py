@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from typing import Any, ClassVar
+from urllib.parse import urldefrag, urlparse
 
 import httpx
 
@@ -24,7 +25,11 @@ from plugins.base import (
     format_template,
 )
 from plugins.registry import register_source
-from plugins.sources._htmlscan import extract_image_urls, extract_links
+from plugins.sources._htmlscan import (
+    extract_image_urls,
+    extract_links,
+    looks_like_product_page,
+)
 from plugins.sources._httpbase import (
     ACCEPT_HTML,
     ACCEPT_IMAGE,
@@ -33,7 +38,10 @@ from plugins.sources._httpbase import (
 )
 
 # Pattern di ricerca più diffusi, provati quando si conosce solo il dominio.
+# Quello WooCommerce (`post_type=product`) è primo: porta direttamente alla
+# pagina del singolo prodotto quando la ricerca ha un solo risultato.
 COMMON_SEARCH_PATTERNS: tuple[str, ...] = (
+    "/?s={codice}&post_type=product",
     "/?s={codice}",
     "/search?q={codice}",
     "/ricerca?q={codice}",
@@ -41,6 +49,52 @@ COMMON_SEARCH_PATTERNS: tuple[str, ...] = (
     "/catalogsearch/result/?q={codice}",
     "/?q={codice}",
 )
+
+# Segmenti di percorso tipici delle pagine prodotto.
+_PRODUCT_PATH_HINTS = ("/prodott", "/product", "/prodotto", "/products")
+
+
+def _code_variants(code: str) -> list[str]:
+    """Varianti del codice usate per confrontare URL/file.
+
+    Molti siti salvano l'immagine col codice base senza il suffisso variante:
+    es. ``306.2085.NO`` → ``306.2085``, ``125.0100.10.M`` → ``125.0100.10``.
+    """
+    low = code.lower()
+    variants = {low}
+    head, _, tail = low.rpartition(".")
+    if head and tail.isalpha():
+        variants.add(head)
+    return [v for v in variants if v]
+
+
+def _matches_code(text: str, code: str) -> bool:
+    low = text.lower()
+    return any(variant in low for variant in _code_variants(code))
+
+
+def _followable_links(html: str, page_url: str, code: str) -> list[str]:
+    """Link a pagine prodotto da seguire, escludendo self-link e feed."""
+    page_norm = urldefrag(page_url)[0].rstrip("/")
+    out: list[str] = []
+    for link in extract_links(html, page_url, code):
+        clean = urldefrag(link)[0]
+        if not clean.startswith(("http://", "https://")):
+            continue
+        if clean.rstrip("/") == page_norm:
+            continue
+        low = clean.lower()
+        if "/feed" in low or "wp-json" in low or low.endswith((".xml", ".rss")):
+            continue
+        path = urlparse(clean).path
+        # Le varianti della ricerca (es. /?s=CODICE, /?s=CODICE/feed) non sono
+        # pagine prodotto: richiediamo un percorso vero.
+        if not path or path == "/":
+            continue
+        if _matches_code(clean, code) or any(hint in path.lower() for hint in _PRODUCT_PATH_HINTS):
+            out.append(clean)
+    return out
+
 
 _SPECIFIC_FIELDS: tuple[FieldSpec, ...] = (
     FieldSpec(
@@ -195,28 +249,21 @@ class SourceHTML(HTTPImageMixin, ImageSource):
             html = fetch_page(url)
             if html is None:
                 return None, []
+            # Di una pagina prodotto (template o riconosciuta come tale) ci
+            # fidiamo; su ricerca/archivio accettiamo solo immagini col codice.
+            trusted = kind == "product" or looks_like_product_page(html)
             images = extract_image_urls(html, url, code)
-            if kind == "search":
-                # Su una pagina di ricerca accettiamo solo immagini il cui URL
-                # contiene il codice: così troviamo la miniatura giusta ma non
-                # scarichiamo logo/banner generici quando il prodotto manca.
-                images = [img for img in images if code.lower() in img.lower()]
-            # Su una pagina prodotto (template o link col codice) ci fidiamo
-            # delle immagini estratte, come nella versione precedente.
+            if not trusted:
+                images = [img for img in images if _matches_code(img, code)]
             for image_url in images:
                 result = self._download(image_url, url)
                 if result is not None:
                     return result, []
-            # Seguiamo i link solo dalle pagine di ricerca e solo quelli che
-            # contengono il codice (evita di scaricare pagine generiche).
-            if kind != "search" or not self.config.get("follow_links", True):
+            # Seguiamo i link solo dalle pagine di ricerca e solo verso pagine
+            # prodotto reali (mai self-link/breadcrumb/feed).
+            if trusted or kind != "search" or not self.config.get("follow_links", True):
                 return None, []
-            links = [
-                link
-                for link in extract_links(html, url, code)
-                if code.lower() in link.lower()
-            ]
-            return None, links
+            return None, _followable_links(html, url, code)
 
         queue = list(self.entry_urls(code))
         while queue and state["done"] < budget:
@@ -225,7 +272,7 @@ class SourceHTML(HTTPImageMixin, ImageSource):
             if result is not None:
                 return result
             # I link trovati hanno priorità sulle restanti pagine di ricerca.
-            queue[0:0] = [(link, "product") for link in links]
+            queue[0:0] = [(link, "link") for link in links]
 
         tried = ", ".join(dict.fromkeys(state["tried"])) or "nessuna"
         raise NotFoundError(

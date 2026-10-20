@@ -144,6 +144,18 @@ def is_image_url(url: str) -> bool:
     return urlparse(url).path.lower().endswith(IMAGE_EXTENSIONS)
 
 
+def looks_like_product_page(html: str) -> bool:
+    """Riconosce una pagina dettaglio prodotto (WooCommerce/OpenGraph).
+
+    Serve a distinguere la pagina del singolo prodotto (di cui ci si può fidare)
+    da una pagina di ricerca/archivio (dove le immagini sono spesso generiche).
+    """
+    low = (html or "").lower()
+    if 'content="product"' in low and ("og:type" in low or "property='og:type'" in low):
+        return True
+    return "single-product" in low or "product-template" in low
+
+
 def extract_image_urls(html: str, page_url: str, code: str = "") -> list[str]:
     """Restituisce gli URL immagine trovati, in ordine di attendibilità.
 
