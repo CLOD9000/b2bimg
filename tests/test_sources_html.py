@@ -296,6 +296,42 @@ def test_html_does_not_follow_self_and_feed_links() -> None:
         source.fetch("AB-3")
 
 
+def test_html_no_results_page_does_not_download_footer() -> None:
+    """Pagina 'nessun risultato': niente immagine (nemmeno se cita single-product)."""
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            text=(
+                '<html><body class="archive search search-no-results '
+                'post-type-archive post-type-archive-product">'
+                '<script>var theme="single-product";</script>'
+                '<img src="/wp-content/uploads/bgn-bubbles-footer.png">'
+                "</body></html>"
+            ),
+            headers={"content-type": "text/html"},
+        )
+
+    source = _html_source(handler, auto_discovery=True, follow_links=True)
+    with pytest.raises(NotFoundError):
+        source.fetch("306.2000.9005.O")
+
+
+def test_looks_like_product_page_ignores_stray_substring() -> None:
+    from plugins.sources._htmlscan import looks_like_product_page
+
+    archive = (
+        '<body class="archive search search-no-results post-type-archive">'
+        '<script>var x="single-product";</script></body>'
+    )
+    product = (
+        '<meta property="og:type" content="product">'
+        '<body class="single single-product postid-1">'
+    )
+    assert looks_like_product_page(archive) is False
+    assert looks_like_product_page(product) is True
+
+
 def test_html_no_config_raises_config_error() -> None:
     source = SourceHTML(
         {"base_url": "", "auto_discovery": False},

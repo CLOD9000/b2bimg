@@ -7,6 +7,7 @@ pagina: preferisce i metadati social (``og:image``), poi JSON-LD, poi ``<img>``.
 from __future__ import annotations
 
 import json
+import re
 from html.parser import HTMLParser
 from urllib.parse import urljoin, urlparse
 
@@ -31,6 +32,13 @@ _META_IMAGE_KEYS = (
     "twitter:image",
     "twitter:image:src",
 )
+
+_OG_TYPE_RE = re.compile(
+    r"<meta\b[^>]*\b(?:property|name)\s*=\s*[\"']og:type[\"'][^>]*>", re.IGNORECASE
+)
+_OG_TYPE_CONTENT_RE = re.compile(r"content\s*=\s*[\"']product[\"']", re.IGNORECASE)
+_BODY_RE = re.compile(r"<body\b[^>]*>", re.IGNORECASE)
+_CLASS_RE = re.compile(r"class\s*=\s*[\"']([^\"']*)[\"']", re.IGNORECASE)
 
 
 class HTMLScan(HTMLParser):
@@ -147,13 +155,28 @@ def is_image_url(url: str) -> bool:
 def looks_like_product_page(html: str) -> bool:
     """Riconosce una pagina dettaglio prodotto (WooCommerce/OpenGraph).
 
-    Serve a distinguere la pagina del singolo prodotto (di cui ci si può fidare)
-    da una pagina di ricerca/archivio (dove le immagini sono spesso generiche).
+    Usa solo segnali affidabili: ``og:type = product`` oppure la classe
+    ``single-product``/``product-template-default`` sul tag ``<body>``. Non basta
+    una sottostringa qualsiasi: le pagine di ricerca possono citare
+    ``single-product`` in script o CSS.
     """
-    low = (html or "").lower()
-    if 'content="product"' in low and ("og:type" in low or "property='og:type'" in low):
-        return True
-    return "single-product" in low or "product-template" in low
+    text = html or ""
+    for tag in _OG_TYPE_RE.findall(text):
+        if _OG_TYPE_CONTENT_RE.search(tag):
+            return True
+    body = _BODY_RE.search(text)
+    if body:
+        classes = _CLASS_RE.search(body.group(0))
+        if classes:
+            tokens = classes.group(1).lower().split()
+            if "single-product" in tokens or "product-template-default" in tokens:
+                return True
+    return False
+
+
+def is_no_results_page(html: str) -> bool:
+    """Vero per le pagine di ricerca WooCommerce senza risultati."""
+    return "search-no-results" in (html or "").lower()
 
 
 def extract_image_urls(html: str, page_url: str, code: str = "") -> list[str]:

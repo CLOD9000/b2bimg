@@ -28,6 +28,7 @@ from plugins.registry import register_source
 from plugins.sources._htmlscan import (
     extract_image_urls,
     extract_links,
+    is_no_results_page,
     looks_like_product_page,
 )
 from plugins.sources._httpbase import (
@@ -249,6 +250,10 @@ class SourceHTML(HTTPImageMixin, ImageSource):
             html = fetch_page(url)
             if html is None:
                 return None, []
+            # WooCommerce: la pagina di ricerca dichiara esplicitamente l'assenza
+            # di risultati. Inutile provare altri pattern o scaricare immagini.
+            if kind == "search" and is_no_results_page(html):
+                raise NotFoundError(f"nessun risultato per il codice {code!r}")
             # Di una pagina prodotto (template o riconosciuta come tale) ci
             # fidiamo; su ricerca/archivio accettiamo solo immagini col codice.
             trusted = kind == "product" or looks_like_product_page(html)
