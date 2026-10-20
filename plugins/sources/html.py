@@ -195,27 +195,28 @@ class SourceHTML(HTTPImageMixin, ImageSource):
             html = fetch_page(url)
             if html is None:
                 return None, []
-            # Le pagine di ricerca contengono l'immagine generica del sito
-            # (es. og:image): non vanno mai usate come immagine prodotto.
-            if kind == "product":
-                page_has_code = code.lower() in html.lower()
-                for image_url in extract_image_urls(html, url, code):
-                    # Se la pagina non cita il codice, accettiamo solo immagini
-                    # il cui URL lo contiene: evita di salvare l'immagine
-                    # generica di una pagina che non è quella del prodotto.
-                    if not page_has_code and code.lower() not in image_url.lower():
-                        continue
-                    result = self._download(image_url, url)
-                    if result is not None:
-                        return result, []
-            follow = bool(self.config.get("follow_links", True))
-            if not follow:
+            images = extract_image_urls(html, url, code)
+            if kind == "search":
+                # Su una pagina di ricerca accettiamo solo immagini il cui URL
+                # contiene il codice: così troviamo la miniatura giusta ma non
+                # scarichiamo logo/banner generici quando il prodotto manca.
+                images = [img for img in images if code.lower() in img.lower()]
+            # Su una pagina prodotto (template o link col codice) ci fidiamo
+            # delle immagini estratte, come nella versione precedente.
+            for image_url in images:
+                result = self._download(image_url, url)
+                if result is not None:
+                    return result, []
+            # Seguiamo i link solo dalle pagine di ricerca e solo quelli che
+            # contengono il codice (evita di scaricare pagine generiche).
+            if kind != "search" or not self.config.get("follow_links", True):
                 return None, []
-            links = extract_links(html, url, code)
-            # Preferisci i link che contengono il codice; se non ce ne sono,
-            # ripiega sugli altri (alcuni siti usano ID interni negli URL).
-            preferred = [link for link in links if code.lower() in link.lower()]
-            return None, preferred or links
+            links = [
+                link
+                for link in extract_links(html, url, code)
+                if code.lower() in link.lower()
+            ]
+            return None, links
 
         queue = list(self.entry_urls(code))
         while queue and state["done"] < budget:
